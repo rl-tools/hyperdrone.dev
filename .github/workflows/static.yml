@@ -31,13 +31,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Download assets
+        run: bash rl_tools/static/hyperdrone/download_blob.sh
+      - name: Validate site files
+        working-directory: rl_tools/static/hyperdrone
+        shell: bash
+        run: |
+          for file in index.html style.css main.js conta.js pose.json registry.json \
+            blob/logo.svg blob/build/hyperdrone_web.js blob/build/hyperdrone_web.wasm; do
+            if [ ! -s "$file" ]; then
+              echo "::error::Missing or empty site file: $file"
+              exit 1
+            fi
+          done
+          jq -er '.reference // (.policy.reference, .drones[0].reference)' pose.json registry.json |
+            while IFS= read -r reference; do
+              file="blob/${reference#conta:}.gz"
+              if [ ! -s "$file" ]; then
+                echo "::error::Missing or empty default asset: $file"
+                exit 1
+              fi
+            done
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: rl_tools/static/hyperdrone
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
